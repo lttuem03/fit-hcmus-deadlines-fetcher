@@ -95,8 +95,6 @@ def fetch_topics_and_assignments(courses: list[Course]):
         aalink_beginning = r'<a class="aalink"'
         instancename_beginning = r'<span class="instancename">'
 
-        # REWRITE ALL STUFFS BELOW, MUST EXTRACT TOPICS NAME AT ALL COST
-
         for section_id, section in enumerate(section_beginning_search):
             if section_id + 1 < len(section_beginning_search):
                 this_section_start = re.search(section, course_content).span()[0]
@@ -204,18 +202,18 @@ def filter_unactive_courses(courses: list[Course]):
                 course_contents = file_contents[trim_from_here:] 
                 course_contents_in_lines = course_contents.splitlines()
 
+                active_topic_names = [] # store names of the active topics of this active course
+
                 for line in course_contents_in_lines:
                     if re.match(r'\[[x ]\] COURSE: (.+)', line) != None: # iterate til the next '[ ] COURSE:' line
                         break
 
-                    active_topic_names = [] # store names of the active topics of this active course
                     match_active_topic = re.match(r'    \[x\] TOPIC: (.+)', line)
+                    
                     if match_active_topic != None:
                         active_topic_names.append(match_active_topic[1])
-                
-                for topic in course.topics:
-                    if topic.name not in active_topic_names:
-                        course.topics.remove(topic)
+
+                course.topics = [topic for topic in course.topics if topic.name in active_topic_names]
 
                 active_courses.append(course)
     
@@ -248,7 +246,7 @@ if __name__ == "__main__":
     
     courses = filter_unactive_courses(courses)
     fetch_assignment_info(courses) # THIS TAKE FOREVER
-    os.system('cls')
+    
     printStuffs(courses)
 
     sys.exit(0)
