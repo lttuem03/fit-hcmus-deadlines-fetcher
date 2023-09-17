@@ -2,12 +2,14 @@ import os.path
 import re
 import sys
 
-from twill import browser, set_output
+from twill import browser
 from twill.commands import formclear, fv, submit
 
 from course import Course
 from topic import Topic
-from assignment import Assignment, get_due_datetime_from_str
+from assignment import Assignment, AssignmentTable
+
+from utils import get_due_datetime_from_str
 
 moodle_host = 'courses.fit.hcmus.edu.vn'
 moodle_https = 'https://' + moodle_host
@@ -138,40 +140,7 @@ def fetch_topics_and_assignments(courses: list[Course]):
 
             course.topics.append(new_topic)
 
-def fetch_assignment_info(courses: list[Course]):
-    due_date_beginning = r'<strong>Due:</strong> '
-    submission_status_find = r'Submission status'
-    submitted_status_find = r'Submitted for grading'
-    unsubmitted_status_find = r'No attempt'
-    
-    for course in courses:
-        for topic in course.topics:
-            for assignment in topic.assignments:
-                browser.go(assignment.url)
-
-                page_contents = browser.html
-
-                # Extract due dates
-                due_date_beginning_search = re.search(due_date_beginning, page_contents)
-
-                if due_date_beginning_search == None:
-                    continue
-                
-                trim_from_here = due_date_beginning_search.span()[1]
-                page_contents = page_contents[trim_from_here:]
-
-                due_date_ending_search = page_contents.find('</div>')
-
-                due_str = page_contents[:due_date_ending_search-13]
-                assignment.due = get_due_datetime_from_str(due_str)
-
-                # Extract submission info
-                submission_status_find_search = re.search(submission_status_find, page_contents)
-                trim_from_here = submission_status_find_search.span()[0]
-                page_contents = page_contents[trim_from_here:]
-
-                if re.search(submitted_status_find, page_contents) != None:
-                    assignment.submission_status = True
+    print("\nCOMPLETE")
 
 def create_active_course_list(courses: list[Course]):
     with open('active_course_list.txt', 'w') as writer:
@@ -219,6 +188,52 @@ def filter_unactive_courses(courses: list[Course]):
     
     return active_courses
 
+def fetch_assignments(courses: list[Course]):
+    print("\nFetching assignments...")
+    due_date_beginning = r'<strong>Due:</strong> '
+    submission_status_find = r'Submission status'
+    submitted_status_find = r'Submitted for grading'
+    unsubmitted_status_find = r'No attempt'
+    
+    assignment_list = []
+
+    for course in courses:
+        for topic in course.topics:
+            for assignment in topic.assignments:
+                browser.go(assignment.url)
+
+                page_contents = browser.html
+
+                # Set course
+                assignment.setCourse(course.name)
+
+                # Extract due dates
+                due_date_beginning_search = re.search(due_date_beginning, page_contents)
+
+                if due_date_beginning_search == None:
+                    continue
+                
+                trim_from_here = due_date_beginning_search.span()[1]
+                page_contents = page_contents[trim_from_here:]
+
+                due_date_ending_search = page_contents.find('</div>')
+
+                due_str = page_contents[:due_date_ending_search-13]
+                assignment.due = get_due_datetime_from_str(due_str)
+
+                # Extract submission info
+                submission_status_find_search = re.search(submission_status_find, page_contents)
+                trim_from_here = submission_status_find_search.span()[0]
+                page_contents = page_contents[trim_from_here:]
+
+                if re.search(submitted_status_find, page_contents) != None:
+                    assignment.submission_status = True
+
+                assignment_list.append(assignment)
+
+    print("\nCOMPLETE")
+    return assignment_list
+
 def printStuffs(courses: list[Course]):
     for course in courses:
         print("\nCOURSE NAME: " + course.name)
@@ -239,14 +254,13 @@ if __name__ == "__main__":
     courses = fetch_courses()
     fetch_topics_and_assignments(courses)
 
-    print("\nFETCHING COMPLETE")
-
     if os.path.exists('active_course_list.txt') == False:
         create_active_course_list(courses)
     
     courses = filter_unactive_courses(courses)
-    fetch_assignment_info(courses) # THIS TAKE FOREVER
+    assignments = fetch_assignments(courses)
     
-    printStuffs(courses)
+    table = AssignmentTable(assignment_list=assignments)
+    table.print()
 
     sys.exit(0)

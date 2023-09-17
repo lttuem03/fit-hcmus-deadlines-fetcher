@@ -1,10 +1,14 @@
 import re
 import datetime as dt
+import unicodedata
+
+from utils import unicodeLen, get_due_datetime_from_str
 
 class Assignment:
     name = ""
     url = ""
-    
+    course = ""
+
     def __init__(self, name, url):
         self.name = name
         self.url = url
@@ -12,49 +16,74 @@ class Assignment:
         self.submission_status = False
 
     def __str__(self):
-        return "{} - Due: {} - Submitted: {}".format(self.name, self.due.strftime("%A, %d/%m/%Y,  %H:%M"), self.submission_status)
-
-def get_due_datetime_from_str(due_str: str):
-    """Interpret the due time string on Moodle into a datetime object / 
-    Format: Monday, 13 March 2023, 9:40 AM
-    (Note: 12:00 AM means 12:00 midday, 12:00 PM means 0:00 next day)"""
-
-    # Set default values in case parsing gone wrong
-    day = 1
-    month = 1
-    year = 1970
-    hour = 0
-    minute = 0
-
-    # Extract the date values: day, month, year
-    month_patterns = [r'January', r'February', r'March', r'April', r'May', r'June', r'July', r'August', r'September', r'October', r'November', r'December']
-
-    for month_as_integer, month_as_str in enumerate(month_patterns, start=1):
-        date_pattern = r'(\d+) (' + month_as_str + r') (\d+)'
-
-        search_result = re.search(date_pattern, due_str)
-
-        if search_result != None:
-            day = int(search_result[1])
-            month = month_as_integer
-            year = int(search_result[3])
-
-            break
+        return "{} - {} - Due: {} - Submitted: {}".format(self.name, self.course, self.due.strftime("%A, %d/%m/%Y,  %H:%M"), self.submission_status)
     
-    # Extract the time values, +1 day if needed (12 PM)
-    if '12:00 PM' in due_str:
-        hour = 0
-        minute = 0
-        return dt.datetime(day=day+1, month=month, year=year, hour=hour, minute=minute)
-    
-    time_pattern = r'(\d{1,2}):(\d{2}) (AM|PM)'
+    def setCourse(self, course):
+        self.course = course
 
-    search_result = re.search(time_pattern, due_str)
+class AssignmentTable:
+    buffer = ""
 
-    hour = int(search_result[1])
-    minute = int(search_result[2])
+    def __init__(self, assignment_list: list[Assignment]):
+        self.assignment_list = assignment_list
+        self.craftTable()
 
-    if search_result[3] == 'PM':
-        hour += 12
-    
-    return dt.datetime(day=day, month=month, year=year, hour=hour, minute=minute)
+    def craftTable(self, fields: list[(str, int)] = [("Assignment", 32), ("Course", 24), ("Due", 30), ("Submitted", 9)], border_width = 2):
+        header = ""
+        seperator = ""
+
+        for field_name, field_len in fields:
+            header += "{:<{len}}".format(field_name, len=field_len + border_width)
+            seperator += "{"":{fill}>{width}}".format(" " * border_width, fill= '=', width=field_len + border_width)
+        
+        header += "\n"
+        seperator += "\n"
+
+        self.buffer += "\n" + header + seperator
+
+        if len(self.assignment_list) == 0:
+            self.buffer += "\n"
+            self.buffer += seperator
+            return
+
+        assignment_list_sorted = sorted(self.assignment_list, key=lambda assignment:assignment.due)
+
+        name_field_len = fields[0][1]
+        course_field_len = fields[1][1]
+        due_field_len = fields[2][1]
+        submitted_field_len = fields[3][1]
+
+        for assignment in assignment_list_sorted:
+            # Assignment name
+            if unicodeLen(assignment.name) <= name_field_len:
+                name_field = unicodedata.normalize('NFC', assignment.name)
+            else:
+                name_field = unicodedata.normalize('NFC', assignment.name)[:name_field_len - 3] + "..."
+
+            # Assignment course
+            if unicodeLen(assignment.course) <= course_field_len:
+                course_field = unicodedata.normalize('NFC', assignment.course)
+            else:
+                course_field = unicodedata.normalize('NFC', assignment.course)[:course_field_len - 3] + "..."
+
+            # Due date
+            day_of_week_part =  assignment.due.strftime("(%A)")
+            date_part = assignment.due.strftime("%d/%m/%Y")
+            time_part = assignment.due.strftime("%H:%M")
+            due_field = "{time:<5}, {date:<10} {day_of_week:<12}".format(day_of_week=day_of_week_part, date=date_part, time=time_part)
+            
+            if len(due_field) > due_field_len:
+                due_field = due_field[:due_field_len - 3] + "..."
+            
+            # Submitted
+            if assignment.submission_status:
+                submitted_field = "[x]"
+            else:
+                submitted_field = "[ ]"
+
+            self.buffer += "{name:<{name_len}}{border}{course:<{course_len}}{border}{due:<{due_len}}{border}{submitted:^{submitted_len}}\n".format(border=" " * border_width, name=name_field, name_len=name_field_len, course=course_field, course_len=course_field_len, due=due_field, due_len=due_field_len, submitted=submitted_field, submitted_len=submitted_field_len)
+
+        self.buffer += seperator
+
+    def print(self):
+        print(self.buffer)
