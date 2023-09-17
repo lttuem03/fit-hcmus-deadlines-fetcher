@@ -1,12 +1,12 @@
 # fit-hcmus-deadlines-fetcher
 
 ## Table of contents
-- [Description](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher/tree/main#description)
-- [Why would I need this ?](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher/tree/main#why-would-i-need-this-)
-- [Target user](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher/tree/main#target-user)
-- [Prerequisites](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher/tree/main#prerequisites)
-- [Using this tool](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher/tree/main#using-this-tool)
-- [How the script works](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher/tree/main#how-the-script-works)
+- [Description](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher#description)
+- [Why would I need this ?](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher#why-would-i-need-this-)
+- [Target user](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher#target-user)
+- [Prerequisites](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher#prerequisites)
+- [Using this tool](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher#using-this-tool)
+- [How the script works](https://github.com/lttuem03/fit-hcmus-deadlines-fetcher#how-the-script-works)
 
 ## Description
 A small tool that help me and potentially other students at FIT@HCMUS track their unsubmitted assignments on my university's Moodle. 
