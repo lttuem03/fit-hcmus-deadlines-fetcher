@@ -261,6 +261,8 @@ if __name__ == "__main__":
     assignments = fetch_assignments(courses)
     
     table = AssignmentTable(assignment_list=assignments)
+    table.craftTable(include_submitted=False)
+    os.system('cls')
     table.print()
 
     sys.exit(0)
