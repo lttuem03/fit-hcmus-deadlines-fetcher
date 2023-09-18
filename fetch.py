@@ -14,10 +14,38 @@ from utils import get_due_datetime_from_str
 moodle_host = 'courses.fit.hcmus.edu.vn'
 moodle_https = 'https://' + moodle_host
 
-def login():
+def fetch_argv_login_info():
+    if len(sys.argv) < 3:
+        return "", ""
+    
+    argv_username = ""
+    argv_password = ""
+
+    username_arg_pattern = r'-u=(\w+)'
+    password_arg_pattern = r'-p=([\w\.]+)'
+
+    for argv in sys.argv:
+        match_username = re.match(username_arg_pattern, argv)
+        if match_username != None:
+            argv_username = match_username[1]
+            continue
+        match_password = re.match(password_arg_pattern, argv)
+        if match_password != None:
+            argv_password = match_password[1]
+    
+    return argv_username, argv_password
+
+def login(argv_username = "", argv_password = ""):
     print("Log into FIT@HCMUS Moodle:")
-    username = input("Username: ")
-    password = input("Password: ")
+    
+    if argv_username == "" or argv_password == "":
+        username = input("Username: ")
+        password = input("Password: ")
+    else:
+        username = argv_username
+        password = argv_password
+        print("Username: " + username)
+        print("Password: " + password)
 
     login_failed_id = 'loginerrormessage'
 
@@ -247,8 +275,10 @@ def printStuffs(courses: list[Course]):
                 print(assignment) 
 
 if __name__ == "__main__":
-    # Login attempt
-    if login() == False:
+    
+    argv_username, argv_password = fetch_argv_login_info()
+
+    if login(argv_username, argv_password) == False:
         sys.exit(1)
 
     courses = fetch_courses()
@@ -262,11 +292,8 @@ if __name__ == "__main__":
     
     table = AssignmentTable(assignment_list=assignments)
     
-    if len(sys.argv) > 1:
-        if sys.argv[1] == "-a" or sys.argv[1] == "--all":
-            table.craftTable(include_submitted=True)
-        else:
-            table.craftTable(include_submitted=False)
+    if "-a" in sys.argv or "--all" in sys.argv:
+        table.craftTable(include_submitted=True)
     else:
         table.craftTable(include_submitted=False)
 
