@@ -37,10 +37,11 @@ pip install twill
 ## Using this tool
 You can fork/download the python scripts here, then just run the `fetch.py` file in any commandline-based tool:
 ```
-(On Windows' cmd) ..\fit-hcmus-deadlines-fetcher> python fetch.py [-a|-all]
+..\fit-hcmus-deadlines-fetcher> python fetch.py [-a|-all] [-u=yourusername] [-p=yourpassword]
 ```
 \
 (__The optional argument "-a" or "-all" will show you all of your active assignments, **including ones that you have submitted**. By default, it only shows unsubmitted assignments.__) \
+(__You can skip the typing in the login part by using BOTH the "-u" and "-p" in your command, this can help a lot if you're using bat file to run the scripts, as shown below.__) \
 \
 Login using your username and password, wait a bit for the program to fetch your courses info from Moodle, then edit the `active_course_list.txt` file (if it was your first time running, or the file isn't already there, then it will be created for you) to choose which courses/topic sections you're currently following. `fetch.py` will based on the `active_course_list.txt` to show you only what you need. \
 \
@@ -51,7 +52,7 @@ Login using your username and password, wait a bit for the program to fetch your
 **HINT**: Here's how to make a psuedo executable on Windows by using Batch scripting: create a file ending in .bat, edit its contents with following 3 commands:
 ```
 cd "<the directory in which the python scripts are>"
-python fetch.py
+python fetch.py -a -p=myusername -u=mypassword
 pause
 :: Note that if the scripts are on another disk (eg. D:\) you must prefix the directory with /<name of the this>. For example:
 :: cd /d "D:\fit-hcmus-deadlines-fetcher"
