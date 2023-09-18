@@ -27,7 +27,7 @@ class AssignmentTable:
     def __init__(self, assignment_list: list[Assignment]):
         self.assignment_list = assignment_list
 
-    def craftTable(self, fields: list[(str, int)] = [("Assignment", 32), ("Course", 24), ("Due", 30), ("Submitted", 9)], border_width = 2, include_submitted=False):
+    def craftTable(self, fields: list[(str, int)] = [("Assignment", 32), ("Course", 30), ("Due", 30), ("Submitted", 9)], border_width = 2, include_submitted=False):
         header = ""
         seperator = ""
 

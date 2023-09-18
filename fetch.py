@@ -261,8 +261,17 @@ if __name__ == "__main__":
     assignments = fetch_assignments(courses)
     
     table = AssignmentTable(assignment_list=assignments)
-    table.craftTable(include_submitted=False)
+    
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "-a" or sys.argv[1] == "--all":
+            table.craftTable(include_submitted=True)
+        else:
+            table.craftTable(include_submitted=False)
+    else:
+        table.craftTable(include_submitted=False)
+
     os.system('cls')
+    print("Here are the assignments for your active courses:")
     table.print()
 
     sys.exit(0)
