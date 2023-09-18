@@ -40,7 +40,7 @@ You can fork/download the python scripts here, then just run the `fetch.py` file
 (On Windows' cmd) ..\fit-hcmus-deadlines-fetcher> python fetch.py [-a|-all]
 ```
 \
-(__The optional argument "-a" or "-all" will show you all of your active assignments, **including ones that you have submitted**__) \
+(__The optional argument "-a" or "-all" will show you all of your active assignments, **including ones that you have submitted**. By default, it only shows unsubmitted assignments.__) \
 \
 Login using your username and password, wait a bit for the program to fetch your courses info from Moodle, then edit the `active_course_list.txt` file (if it was your first time running, or the file isn't already there, then it will be created for you) to choose which courses/topic sections you're currently following. `fetch.py` will based on the `active_course_list.txt` to show you only what you need. \
 \
