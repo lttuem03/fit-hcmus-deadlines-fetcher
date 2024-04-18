@@ -71,196 +71,50 @@ def login(argv_username = "", argv_password = ""):
     print("\nFailed to log in")
     return False
 
-def fetch_courses():
-    """Fetch the courses' name and URL from the main page html"""
+def fetch_assignments_from_calendar_upcoming_view():
+    moodle_calendar_upcoming_url = moodle_https + '/calendar/view.php?view=upcoming'
+    browser.go(moodle_calendar_upcoming_url)
 
-    print("\nFetching courses...")
-    courses = []
-    main_page_html = browser.html
-
-    course_ids = re.findall(r'data-courseid="(\d+)"', main_page_html)
-    course_ids = [Id for Id in course_ids if Id != '1'] # Filter out '1'
-
-    base_course_url = 'https://courses.fit.hcmus.edu.vn/course/view.php?id='
-    base_course_pattern = r'https:\/\/courses\.fit\.hcmus\.edu\.vn\/course\/view\.php\?id='
-
-    for cid in course_ids:
-        course_url = base_course_url + cid
-        course_pattern = base_course_pattern + cid
-
-        match = re.search(course_pattern, main_page_html)
-
-        if match != None:
-            span = match.span()
-            start = main_page_html[span[1]:].find('>') + span[1]
-            end = main_page_html[span[1]:].find('<') + span[1]
-
-            course_name = main_page_html[start+1:end]
-            courses.append(Course(course_name, course_url))
+    event_list_html = browser.html
+    find_event_list_upperbound = r'<div class="eventlist my-1">'
+    find_event_list_lowerbound = r'Export calendar</button>'
+    find_event_lowerbound = r'card-footer text-right bg-transparent'
+    find_course_name = r'view\.php\?id=(.+)">(.+)<\/a><\/div>'
+    find_course_url = r'<a href="(.+)" class="card-link">Add submission</a>'
     
-    return courses
+    upperbound = re.search(find_event_list_upperbound, event_list_html)
+    lowerbound = re.search(find_event_list_lowerbound, event_list_html)
 
-def fetch_topics_and_assignments(courses: list[Course]):
-    """Go through each course and extract their topics and assignments by chipping away at the html lol"""
-    for course in courses:
-        browser.go(course.url)
-        course_content = browser.html
+    event_list_html = event_list_html[upperbound.span()[0]:lowerbound.span()[1]]
+    event_names = re.findall(r'data-event-title="(.+)" data-event-count', event_list_html)
 
-        # Extract only after the main region (containing the topics and assignment) from the course html
-        region_main_section_beginning = r'<section id="region-main"'
+    assignments_list = []
 
-        region_main_section_beginning_search = re.search(region_main_section_beginning, course_content)
-        if region_main_section_beginning_search == None:
-            continue
-        
-        span = region_main_section_beginning_search.span()
-        course_content = course_content[span[0]:]
+    for event_name in event_names:
+        assignment_name = event_name[:-7]
+        assignment_course_name = re.search(find_course_name, event_list_html)[2]
+        find_course_url_search = re.search(find_course_url, event_list_html)
+        assignment_url = find_course_url_search[1][:-26]
+        assignment_submission_status = ""
 
-        # Extract the topic (in the html, they are called sections)
-        section_beginning = r'<li id="section-\d+"'
-        section_beginning_search = re.findall(section_beginning, course_content)
+        new_assignment = Assignment(assignment_name, assignment_url, assignment_course_name)
 
-        sectionname_beginning = r'<h3 id="sectionid-(\d+)-title" class="sectionname'
-        activity_assign_beginning = r'<li class="activity assign modtype_assign'
-        aalink_beginning = r'<a class="aalink"'
-        instancename_beginning = r'<span class="instancename">'
+        browser.go(assignment_url)
 
-        for section_id, section in enumerate(section_beginning_search):
-            if section_id + 1 < len(section_beginning_search):
-                this_section_start = re.search(section, course_content).span()[0]
-                this_section_end = re.search(section_beginning_search[section_id + 1], course_content).span()[0]
+        # Find Due string
+        assignment_html = browser.html
+        due_str = re.search(r'<strong>Due:<\/strong> (.+)', assignment_html)[1]
+        new_assignment.due = get_due_datetime_from_str(due_str)
 
-                section_contents = course_content[this_section_start:this_section_end]
-            else:
-                section_contents = course_content[this_section_end:]
+        # Find submission status
+        if re.search(r'Submitted for grading', assignment_html) != None:
+            new_assignment.submission_status = True
 
-            # Extract section name
-            find_sectionname_match = re.search(sectionname_beginning, section_contents)
-            trim_from_here = find_sectionname_match.span()[0]
-            section_contents = section_contents[trim_from_here:]
-            sectionname_span_beginning = section_contents.find('<span>')
-            sectionname_span_ending = section_contents.find('</span>')
-            topic_name = section_contents[sectionname_span_beginning + 6:sectionname_span_ending].replace('&amp;', '&')
-            
-            new_topic = Topic(topic_name)
-            
-            # Extract the assignments in the topic
-            activity_assign_beginning_search = re.search(activity_assign_beginning, section_contents)
-            while activity_assign_beginning_search != None:
-                trim_from_here = activity_assign_beginning_search.span()[0]
-                section_contents = section_contents[trim_from_here:]
-                # Extract assignment URL
-                aalink_beginning_search = re.search(aalink_beginning, section_contents)
-                trim_from_here = aalink_beginning_search.span()[0]
-                section_contents = section_contents[trim_from_here:]
-                href_begining = section_contents.find('href="')
-                href_ending = section_contents.find('">')
-                assignment_url = section_contents[href_begining + 6: href_ending]
-                # Extract assignment name
-                instancename_beginning_search = re.search(instancename_beginning, section_contents)
-                trim_from_here = instancename_beginning_search.span()[1]
-                section_contents = section_contents[trim_from_here:]
-                instancename_ending = section_contents.find('<')
-                assignment_name = section_contents[:instancename_ending].replace('&amp;', '&')
-                new_topic.assignments.append(Assignment(assignment_name, assignment_url))
-                section_contents = section_contents[instancename_ending:]
-                activity_assign_beginning_search = re.search(activity_assign_beginning, section_contents)
+        assignments_list.append(new_assignment)
 
-            course.topics.append(new_topic)
-
-    print("\nCOMPLETE")
-
-def create_active_course_list(courses: list[Course]):
-    with open('active_course_list.txt', 'w') as writer:
-        for course in courses:
-            writer.write("[ ] COURSE: " + course.name + "\n")
-            
-            for topic in course.topics:
-                if topic.name != 'General':
-                    writer.write("    [x] TOPIC: " + topic.name + "\n")
-                else:
-                    writer.write("    [ ] TOPIC: " + topic.name + "\n")
-    
-    print("Active course list created, edit the file and check [x] every course and topic you need to follow")
-
-def filter_unactive_courses(courses: list[Course]):
-    active_courses = []
-    active_course_pattern = r'\[x\] COURSE: (.+)'
-
-    with open('active_course_list.txt', 'r') as reader:
-        file_contents = reader.read()
-        active_courses_name = re.findall(active_course_pattern, file_contents)
-
-        for course in courses:
-            if course.name in active_courses_name:
-                # Filter out the topics before appending to active course list
-                search_course_in_file_content = re.search(course.name, file_contents)
-                trim_from_here = search_course_in_file_content.span()[0]
-                course_contents = file_contents[trim_from_here:] 
-                course_contents_in_lines = course_contents.splitlines()
-
-                active_topic_names = [] # store names of the active topics of this active course
-
-                for line in course_contents_in_lines:
-                    if re.match(r'\[[x ]\] COURSE: (.+)', line) != None: # iterate til the next '[ ] COURSE:' line
-                        break
-
-                    match_active_topic = re.match(r'    \[x\] TOPIC: (.+)', line)
-                    
-                    if match_active_topic != None:
-                        active_topic_names.append(match_active_topic[1])
-
-                course.topics = [topic for topic in course.topics if topic.name in active_topic_names]
-
-                active_courses.append(course)
-    
-    return active_courses
-
-def fetch_assignments(courses: list[Course]):
-    print("\nFetching assignments...")
-    due_date_beginning = r'<strong>Due:</strong> '
-    submission_status_find = r'Submission status'
-    submitted_status_find = r'Submitted for grading'
-    unsubmitted_status_find = r'No attempt'
-    
-    assignment_list = []
-
-    for course in courses:
-        for topic in course.topics:
-            for assignment in topic.assignments:
-                browser.go(assignment.url)
-
-                page_contents = browser.html
-
-                # Set course
-                assignment.setCourse(course.name)
-
-                # Extract due dates
-                due_date_beginning_search = re.search(due_date_beginning, page_contents)
-
-                if due_date_beginning_search == None:
-                    continue
-                
-                trim_from_here = due_date_beginning_search.span()[1]
-                page_contents = page_contents[trim_from_here:]
-
-                due_date_ending_search = page_contents.find('</div>')
-
-                due_str = page_contents[:due_date_ending_search-13]
-                assignment.due = get_due_datetime_from_str(due_str)
-
-                # Extract submission info
-                submission_status_find_search = re.search(submission_status_find, page_contents)
-                trim_from_here = submission_status_find_search.span()[0]
-                page_contents = page_contents[trim_from_here:]
-
-                if re.search(submitted_status_find, page_contents) != None:
-                    assignment.submission_status = True
-
-                assignment_list.append(assignment)
-
-    print("\nCOMPLETE")
-    return assignment_list
+        event_list_html = event_list_html[find_course_url_search.span()[1]:]
+ 
+    return assignments_list
 
 def printStuffs(courses: list[Course]):
     for course in courses:
@@ -275,21 +129,23 @@ def printStuffs(courses: list[Course]):
                 print(assignment) 
 
 if __name__ == "__main__":
-    
     argv_username, argv_password = fetch_argv_login_info()
 
     if login(argv_username, argv_password) == False:
         sys.exit(1)
 
-    courses = fetch_courses()
-    fetch_topics_and_assignments(courses)
+    #courses = fetch_courses()
+    #fetch_topics_and_assignments(courses)
 
-    if os.path.exists('active_course_list.txt') == False:
-        create_active_course_list(courses)
+    #if os.path.exists('active_course_list.txt') == False:
+    #    create_active_course_list(courses)
     
-    courses = filter_unactive_courses(courses)
-    assignments = fetch_assignments(courses)
+    #courses = filter_unactive_courses(courses)
+    #assignments = fetch_assignments(courses)
     
+    # improvement: fetch assignments directly from Calendar
+    assignments = fetch_assignments_from_calendar_upcoming_view()
+
     table = AssignmentTable(assignment_list=assignments)
     
     if "-a" in sys.argv or "--all" in sys.argv:
@@ -298,7 +154,202 @@ if __name__ == "__main__":
         table.craftTable(include_submitted=False)
 
     os.system('cls')
-    print("Here are the assignments for your active courses:")
+    print("Here are your upcoming assignments:")
     table.print()
 
     sys.exit(0)
+
+
+# ANCIENT RELICS (this approach was utter garbage and I'm not proud)
+
+#def fetch_courses():
+#    """Fetch the courses' name and URL from the main page html"""
+#
+#    print("\nFetching courses...")
+#    courses = []
+#    main_page_html = browser.html
+#
+#    course_ids = re.findall(r'data-courseid="(\d+)"', main_page_html)
+#    course_ids = [Id for Id in course_ids if Id != '1'] # Filter out '1'
+#
+#    base_course_url = 'https://courses.fit.hcmus.edu.vn/course/view.php?id='
+#    base_course_pattern = r'https:\/\/courses\.fit\.hcmus\.edu\.vn\/course\/view\.php\?id='
+#
+#    for cid in course_ids:
+#        course_url = base_course_url + cid
+#        course_pattern = base_course_pattern + cid
+#
+#        match = re.search(course_pattern, main_page_html)
+#
+#        if match != None:
+#            span = match.span()
+#            start = main_page_html[span[1]:].find('>') + span[1]
+#            end = main_page_html[span[1]:].find('<') + span[1]
+#
+#            course_name = main_page_html[start+1:end]
+#            courses.append(Course(course_name, course_url))
+#    
+#    return courses
+#
+#def fetch_topics_and_assignments(courses: list[Course]):
+#    """Go through each course and extract their topics and assignments by chipping away at the html lol"""
+#    for course in courses:
+#        browser.go(course.url)
+#        course_content = browser.html
+#
+#        # Extract only after the main region (containing the topics and assignment) from the course html
+#        region_main_section_beginning = r'<section id="region-main"'
+#
+#        region_main_section_beginning_search = re.search(region_main_section_beginning, course_content)
+#        if region_main_section_beginning_search == None:
+#            continue
+#        
+#        span = region_main_section_beginning_search.span()
+#        course_content = course_content[span[0]:]
+#
+#        # Extract the topic (in the html, they are called sections)
+#        section_beginning = r'<li id="section-\d+"'
+#        section_beginning_search = re.findall(section_beginning, course_content)
+#
+#        sectionname_beginning = r'<h3 id="sectionid-(\d+)-title" class="sectionname'
+#        activity_assign_beginning = r'<li class="activity assign modtype_assign'
+#        aalink_beginning = r'<a class="aalink"'
+#        instancename_beginning = r'<span class="instancename">'
+#
+#        for section_id, section in enumerate(section_beginning_search):
+#            if section_id + 1 < len(section_beginning_search):
+#                this_section_start = re.search(section, course_content).span()[0]
+#                this_section_end = re.search(section_beginning_search[section_id + 1], course_content).span()[0]
+#
+#                section_contents = course_content[this_section_start:this_section_end]
+#            else:
+#                section_contents = course_content[this_section_end:]
+#
+#            # Extract section name
+#            find_sectionname_match = re.search(sectionname_beginning, section_contents)
+#            trim_from_here = find_sectionname_match.span()[0]
+#            section_contents = section_contents[trim_from_here:]
+#            sectionname_span_beginning = section_contents.find('<span>')
+#            sectionname_span_ending = section_contents.find('</span>')
+#            topic_name = section_contents[sectionname_span_beginning + 6:sectionname_span_ending].replace('&amp;', '&')
+#            
+#            new_topic = Topic(topic_name)
+#            
+#            # Extract the assignments in the topic
+#            activity_assign_beginning_search = re.search(activity_assign_beginning, section_contents)
+#            while activity_assign_beginning_search != None:
+#                trim_from_here = activity_assign_beginning_search.span()[0]
+#                section_contents = section_contents[trim_from_here:]
+#                # Extract assignment URL
+#                aalink_beginning_search = re.search(aalink_beginning, section_contents)
+#                trim_from_here = aalink_beginning_search.span()[0]
+#                section_contents = section_contents[trim_from_here:]
+#                href_begining = section_contents.find('href="')
+#                href_ending = section_contents.find('">')
+#                assignment_url = section_contents[href_begining + 6: href_ending]
+#                # Extract assignment name
+#                instancename_beginning_search = re.search(instancename_beginning, section_contents)
+#                trim_from_here = instancename_beginning_search.span()[1]
+#                section_contents = section_contents[trim_from_here:]
+#                instancename_ending = section_contents.find('<')
+#                assignment_name = section_contents[:instancename_ending].replace('&amp;', '&')
+#                new_topic.assignments.append(Assignment(assignment_name, assignment_url))
+#                section_contents = section_contents[instancename_ending:]
+#                activity_assign_beginning_search = re.search(activity_assign_beginning, section_contents)
+#
+#            course.topics.append(new_topic)
+#
+#    print("\nCOMPLETE")
+#
+#def create_active_course_list(courses: list[Course]):
+#    with open('active_course_list.txt', 'w') as writer:
+#        for course in courses:
+#            writer.write("[ ] COURSE: " + course.name + "\n")
+#            
+#            for topic in course.topics:
+#                if topic.name != 'General':
+#                    writer.write("    [x] TOPIC: " + topic.name + "\n")
+#                else:
+#                    writer.write("    [ ] TOPIC: " + topic.name + "\n")
+#    
+#    print("Active course list created, edit the file and check [x] every course and topic you need to follow")
+#
+#def filter_unactive_courses(courses: list[Course]):
+#    active_courses = []
+#    active_course_pattern = r'\[x\] COURSE: (.+)'
+#
+#    with open('active_course_list.txt', 'r') as reader:
+#        file_contents = reader.read()
+#        active_courses_name = re.findall(active_course_pattern, file_contents)
+#
+#        for course in courses:
+#            if course.name in active_courses_name:
+#                # Filter out the topics before appending to active course list
+#                search_course_in_file_content = re.search(course.name, file_contents)
+#                trim_from_here = search_course_in_file_content.span()[0]
+#                course_contents = file_contents[trim_from_here:] 
+#                course_contents_in_lines = course_contents.splitlines()
+#
+#                active_topic_names = [] # store names of the active topics of this active course
+#
+#                for line in course_contents_in_lines:
+#                    if re.match(r'\[[x ]\] COURSE: (.+)', line) != None: # iterate til the next '[ ] COURSE:' line
+#                        break
+#
+#                    match_active_topic = re.match(r'    \[x\] TOPIC: (.+)', line)
+#                    
+#                    if match_active_topic != None:
+#                        active_topic_names.append(match_active_topic[1])
+#
+#                course.topics = [topic for topic in course.topics if topic.name in active_topic_names]
+#
+#                active_courses.append(course)
+#    
+#    return active_courses
+#
+#def fetch_assignments(courses: list[Course]):
+#    print("\nFetching assignments...")
+#    due_date_beginning = r'<strong>Due:</strong> '
+#    submission_status_find = r'Submission status'
+#    submitted_status_find = r'Submitted for grading'
+#    unsubmitted_status_find = r'No attempt'
+#    
+#    assignment_list = []
+#
+#    for course in courses:
+#        for topic in course.topics:
+#            for assignment in topic.assignments:
+#                browser.go(assignment.url)
+#
+#                page_contents = browser.html
+#
+#                # Set course
+#                assignment.setCourse(course.name)
+#
+#                # Extract due dates
+#                due_date_beginning_search = re.search(due_date_beginning, page_contents)
+#
+#                if due_date_beginning_search == None:
+#                    continue
+#                
+#                trim_from_here = due_date_beginning_search.span()[1]
+#                page_contents = page_contents[trim_from_here:]
+#
+#                due_date_ending_search = page_contents.find('</div>')
+#
+#                due_str = page_contents[:due_date_ending_search-13]
+#                assignment.due = get_due_datetime_from_str(due_str)
+#
+#                # Extract submission info
+#                submission_status_find_search = re.search(submission_status_find, page_contents)
+#                trim_from_here = submission_status_find_search.span()[0]
+#                page_contents = page_contents[trim_from_here:]
+#
+#                if re.search(submitted_status_find, page_contents) != None:
+#                    assignment.submission_status = True
+#
+#                assignment_list.append(assignment)
+#
+#    print("\nCOMPLETE")
+#    return assignment_list
+#

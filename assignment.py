@@ -9,8 +9,9 @@ class Assignment:
     url = ""
     course = ""
 
-    def __init__(self, name, url):
+    def __init__(self, name, url, course=""):
         self.name = name
+        self.course = course
         self.url = url
         self.due = dt.datetime.now()
         self.submission_status = False
@@ -27,7 +28,7 @@ class AssignmentTable:
     def __init__(self, assignment_list: list[Assignment]):
         self.assignment_list = assignment_list
 
-    def craftTable(self, fields: list[(str, int)] = [("Assignment", 32), ("Course", 30), ("Due", 30), ("Submitted", 9)], border_width = 2, include_submitted=False):
+    def craftTable(self, fields: list[(str, int)] = [("Assignment", 38), ("Course", 30), ("Due", 30), ("Submitted", 9)], border_width = 2, include_submitted=False):
         header = ""
         seperator = ""
 

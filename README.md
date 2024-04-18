@@ -37,35 +37,23 @@ pip install twill
 ## Using this tool
 You can fork/download the python scripts here, then just run the `fetch.py` file in any commandline-based tool:
 ```
-..\fit-hcmus-deadlines-fetcher> python fetch.py [-a|-all] [-u=yourusername] [-p=yourpassword]
+..\fit-hcmus-deadlines-fetcher> python fetch.py [-u=yourusername] [-p=yourpassword]
 ```
 \
-(__The optional argument "-a" or "-all" will show you all of your active assignments, **including ones that you have submitted**. By default, it only shows unsubmitted assignments.__) \
 (__You can skip the typing in the login part by using BOTH the "-u" and "-p" in your command, this can help a lot if you're using bat file to run the scripts, as shown below.__) \
-\
-Login using your username and password, wait a bit for the program to fetch your courses info from Moodle, then edit the `active_course_list.txt` file (if it was your first time running, or the file isn't already there, then it will be created for you) to choose which courses/topic sections you're currently following. `fetch.py` will based on the `active_course_list.txt` to show you only what you need. \
-\
-**NOTE**: If it is your first time running, or there was some changes on the courses' topic list on Moodle (you might need to delete the `active_course_list.txt` file in this case so it can be renewed), you will need to run `fetch.py` twice, the first time to create/renew the `active_course_list.txt`, the second time to show you your assignments info. \
-\
-**EDITING `active_course_list.txt`**: There are 2 state for each course/topic, active (in text: `[x]`) and inactive (in text: `[ ]`), here you will choose what active courses and topics that you're currently working on in that term. As for why I seperate assignments by topics: sometime the assignments in a section (a topic) on Moodle belongs to another practice group, and you just want to track assignments that you need to work on in your own practice group. The amount of courses/topics you have active correlate with the time the script need to fetch all your assignments, so each time you run the script, give it a little time. \
 \
 **HINT**: Here's how to make a psuedo executable on Windows by using Batch scripting: create a file ending in .bat, edit its contents with following 3 commands:
 ```
 cd "<the directory in which the python scripts are>"
-python fetch.py -a -p=myusername -u=mypassword
+python fetch.py -p=myusername -u=mypassword
 pause
 :: Note that if the scripts are on another disk (eg. D:\) you must prefix the directory with /<name of the this>. For example:
 :: cd /d "D:\fit-hcmus-deadlines-fetcher"
 ```
-From there you just need to click on the .bat file to run the scripts. Similarly, you can create a .bat file for launching Notepad to edit `active_course_list.txt` with contents like this:
-```
-start notepad.exe "...\fit-hcmus-deadlines-fetcher\active_course_list.txt"
-:: Replace the ... with your actual directory to the file
-```
 ## How the script works
 The general idea is, fetching all the assignment's page html from the web using [twill](https://github.com/twill-tools/twill "twill: a simple scripting language for web browsing")'s virtual browser, then use regexes to find all the information needed (urls, course names, assignment names, etc.), save them all into objects, finally create a table based on those objects and print it out. \
 \
-In details, the fetching flow goes like this: Fetch the login page > Login > Fetch the courses' names and urls from Moodle's main page > For each course, fetch the topics' name and assignments' name/url > For each assignment, fetch the due date and submission info. \
+In details, the fetching flow goes like this: Fetch the login page > Login > Fetch the assignments from the 'Calendar/Upcoming Events' tab > For each assignment, fetch the due date and submission info. \
 \
 This idea can be applied to any Moodle-based course-management systems, so feel free to create your own version!
 
