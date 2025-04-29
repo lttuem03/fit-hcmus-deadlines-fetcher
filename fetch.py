@@ -14,6 +14,8 @@ from utils import get_due_datetime_from_str
 moodle_host = 'courses.fit.hcmus.edu.vn'
 moodle_https = 'https://' + moodle_host
 
+student_name = ""
+
 def fetch_argv_login_info():
     if len(sys.argv) < 3:
         return "", ""
@@ -36,6 +38,8 @@ def fetch_argv_login_info():
     return argv_username, argv_password
 
 def login(argv_username = "", argv_password = ""):
+    global student_name
+
     print("Log into FIT@HCMUS Moodle:")
     
     if argv_username == "" or argv_password == "":
@@ -44,12 +48,12 @@ def login(argv_username = "", argv_password = ""):
     else:
         username = argv_username
         password = argv_password
-        print("Username: " + username)
-        print("Password: " + password)
+        #print("Username: " + username)
+        #print("Password: " + password)
 
     login_failed_id = 'loginerrormessage'
 
-    print("\nLogging in...")
+    #print("\nLogging in...")
     
     # Go to FIT moodle, redirecting to login page
     browser.go(moodle_https)
@@ -63,8 +67,12 @@ def login(argv_username = "", argv_password = ""):
     submit('loginbtn')
 
     if browser.html.find(login_failed_id) == -1:
+        # Get user's name
+        get_user_name_pattern = r'<span class="usertext mr-1">(.+)</span><span class="avatars">'
+        student_name = re.search(get_user_name_pattern, browser.html)[1]
+
         # Login successful
-        print("\nLogged in")
+        print("\nLogged in as", student_name, "\n")
         return True
     
     # Login failed
@@ -79,8 +87,9 @@ def fetch_assignments_from_calendar_upcoming_view():
     find_event_list_upperbound = r'<div class="eventlist my-1">'
     find_event_list_lowerbound = r'Export calendar</button>'
     find_event_lowerbound = r'card-footer text-right bg-transparent'
-    find_course_name = r'view\.php\?id=(.+)">(.+)<\/a><\/div>'
-    find_course_url = r'<a href="(.+)" class="card-link">Add submission</a>'
+    assigment_area_find = r'card-footer text-right bg-transparent'
+    find_course_name = r'view\.php\?id=(\d+)">(.+)<\/a><\/div>'
+    find_assignment_url = r'<a href="(.+)" class='
     
     upperbound = re.search(find_event_list_upperbound, event_list_html)
     lowerbound = re.search(find_event_list_lowerbound, event_list_html)
@@ -88,13 +97,20 @@ def fetch_assignments_from_calendar_upcoming_view():
     event_list_html = event_list_html[upperbound.span()[0]:lowerbound.span()[1]]
     event_names = re.findall(r'data-event-title="(.+)" data-event-count', event_list_html)
 
+
     assignments_list = []
 
     for event_name in event_names:
         assignment_name = event_name[:-7]
-        assignment_course_name = re.search(find_course_name, event_list_html)[2]
-        find_course_url_search = re.search(find_course_url, event_list_html)
-        assignment_url = find_course_url_search[1][:-26]
+        
+        upperbound = re.search(r"data-event-id=", event_list_html)
+        lowerbound = re.search(r'card-link"', event_list_html)
+        event_html = event_list_html[upperbound.span()[0]:lowerbound.span()[1]]
+        assignment_course_name = re.search(find_course_name, event_html)[2]
+        find_assignment_area = re.search(assigment_area_find, event_html)
+        event_html = event_html[find_assignment_area.span()[1]:]
+        find_assignment_url_search = re.search(find_assignment_url, event_html)
+        assignment_url = find_assignment_url_search[1]
         assignment_submission_status = ""
 
         new_assignment = Assignment(assignment_name, assignment_url, assignment_course_name)
@@ -112,7 +128,7 @@ def fetch_assignments_from_calendar_upcoming_view():
 
         assignments_list.append(new_assignment)
 
-        event_list_html = event_list_html[find_course_url_search.span()[1]:]
+        event_list_html = event_list_html[lowerbound.span()[1]:]
  
     return assignments_list
 
@@ -153,8 +169,8 @@ if __name__ == "__main__":
     else:
         table.craftTable(include_submitted=False)
 
-    os.system('cls')
-    print("Here are your upcoming assignments:")
+    #os.system('cls')
+    print("\nHello {}!\nHere are your upcoming assignments:".format(student_name))
     table.print()
 
     sys.exit(0)
